@@ -1,0 +1,129 @@
+:root {
+    --color-1: #424241;
+    --color-2: #45493d;
+    --color-3: #575843;
+    --color-4: #5a624c;
+    --color-5: #535e38;
+    --text-color: #f0f0f0;
+}
+
+@font-face {
+    font-family: 'CatboxFont';
+    src: url('https://files.catbox.moe/n7b6g3.ttf') format('truetype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+body {
+    background-color: var(--color-1);
+    color: var(--text-color);
+    font-family: 'CatboxFont', sans-serif;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.site-logo {
+    max-width: 100%;
+    height: auto;
+    margin-bottom: 20px;
+    display: block;
+}
+
+h2 {
+    margin-top: 0;
+}
+
+.content-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.controls {
+    flex: 1;
+    min-width: 300px;
+    background-color: var(--color-2);
+    border: 1px solid var(--color-3);
+    padding: 15px;
+}
+
+.preview-section {
+    flex: 2;
+    min-width: 300px;
+    background-color: var(--color-3);
+    border: 1px solid var(--color-4);
+    padding: 15px;
+}
+
+.control-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+input,
+select {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--color-1);
+    color: var(--text-color);
+    border: 1px solid var(--color-4);
+    box-sizing: border-box;
+}
+
+input[type="file"] {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+}
+
+.input-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--color-5);
+    color: var(--text-color);
+    border: 1px solid var(--color-4);
+    border-radius: 2px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+button:hover:not(:disabled) {
+    background-color: var(--color-4);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.warning-text {
+    color: #ffb3b3;
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+canvas {
+    max-width: 100%;
+    background-color: var(--color-1);
+    border: 1px solid var(--color-4);
+}

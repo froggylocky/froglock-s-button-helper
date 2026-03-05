@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>froglock's button helper</title>
+    <link rel="icon" href="https://u.cubeupload.com/froglock/logof.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <img src="https://u.cubeupload.com/froglock/logofroglocksbuttonh.png" alt="froglock's button helper logo"
+            class="site-logo">
+        <div class="content-grid">
+            <div class="controls">
+                <div class="control-group">
+                    <label for="paper-size">Paper Size</label>
+                    <select id="paper-size">
+                        <option value="A4">A4 (21 x 29.7 cm)</option>
+                        <option value="A3">A3 (29.7 x 42 cm)</option>
+                        <option value="A2">A2 (42 x 59.4 cm)</option>
+                        <option value="A1">A1 (59.4 x 84.1 cm)</option>
+                        <option value="ASize" selected>Large Paper (70 x 70 cm)</option>
+                        <option value="custom">Custom Size</option>
+                    </select>
+                </div>
+
+                <div class="control-group custom-dimensions hidden">
+                    <label>Paper Size (cm)</label>
+                    <div class="input-row">
+                        <input type="number" id="paper-w" value="70" step="0.1">
+                        <span>×</span>
+                        <input type="number" id="paper-h" value="70" step="0.1">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label for="target-size">Target Square Size (mm)</label>
+                    <input type="number" id="target-size" value="58" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label for="dpi">Print DPI</label>
+                    <input type="number" id="dpi" value="300" step="1">
+                </div>
+
+                <div class="control-group">
+                    <label>Upload Image</label>
+                    <input type="file" id="file-input" accept="image/*">
+                </div>
+
+                <div class="control-group hidden" id="crop-controls">
+                    <label for="zoom-slider">Zoom Image</label>
+                    <input type="range" id="zoom-slider" min="0.1" max="5" step="0.01" value="1">
+                    <small>Drag the image in the preview to pan</small>
+                </div>
+
+                <button id="export-btn" disabled>Export Transparent PNG</button>
+                <div id="export-warning" class="warning-text hidden">Target size is larger than paper size!</div>
+            </div>
+
+            <div class="preview-section">
+                <h2>Preview</h2>
+                <canvas id="preview-canvas"></canvas>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
