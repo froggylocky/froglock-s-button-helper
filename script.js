@@ -303,13 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         previewCtx.setLineDash([]);
 
-        // Draw 3mm inner safe zone dashed line (only in preview)
-        // 3mm total reduction means target size - 3mm.
-        const innerMm = Math.max(1, settings.targetMm - 3);
+        // Draw 10mm inner safe zone dashed line (only in preview)
+        // 10mm total reduction means target size - 10mm.
+        const innerMm = Math.max(1, settings.targetMm - 10);
         const innerPx = innerMm * (previewTargetPx / settings.targetMm);
         const innerRadius = innerPx / 2;
 
-        previewCtx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        previewCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
         previewCtx.lineWidth = 1;
         previewCtx.setLineDash([4, 4]);
         previewCtx.beginPath();
