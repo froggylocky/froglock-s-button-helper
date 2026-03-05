@@ -8,10 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const dpiInput = document.getElementById('dpi');
     const exportBtn = document.getElementById('export-btn');
     const warningText = document.getElementById('export-warning');
-    const previewCanvas = document.getElementById('preview-canvas');
     const previewCtx = previewCanvas.getContext('2d');
     const cropControls = document.getElementById('crop-controls');
     const zoomSlider = document.getElementById('zoom-slider');
+    const shapeSelect = document.getElementById('shape-select');
 
     let currentImageData = null;
     let cropX = 0; // panning offset X
@@ -65,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
         input.addEventListener('input', updatePreview);
     });
 
+    shapeSelect.addEventListener('change', updatePreview);
     zoomSlider.addEventListener('input', updatePreview);
 
     // Panning logic
@@ -193,12 +194,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const dxCenter = (s.paperWPx - s.targetPx) / 2;
         const dyCenter = (s.paperHPx - s.targetPx) / 2;
 
-        // Draw centered and masked by target square
+        const shape = shapeSelect.value;
+        const radius = targetPx / 2;
+        const centerX = dxCenter + radius;
+        const centerY = dyCenter + radius;
+
+        // Draw centered and masked by target shape
         xCtx.save();
 
-        // Create clipping mask exactly at the target square
+        // Create clipping mask exactly at the target shape
         xCtx.beginPath();
-        xCtx.rect(dxCenter, dyCenter, targetPx, targetPx);
+        if (shape === 'circle') {
+            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        } else {
+            xCtx.rect(dxCenter, dyCenter, targetPx, targetPx);
+        }
         xCtx.clip();
 
         // Where to start drawing the top left corner of the image
@@ -217,7 +227,15 @@ document.addEventListener('DOMContentLoaded', () => {
         xCtx.strokeStyle = "rgba(0, 0, 0, 1)";
         xCtx.lineWidth = Math.max(1, targetPx * 0.005); // dynamic line width
         xCtx.setLineDash([15, 15]);
-        xCtx.strokeRect(dxCenter, dyCenter, targetPx, targetPx);
+
+        xCtx.beginPath();
+        if (shape === 'circle') {
+            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        } else {
+            xCtx.rect(dxCenter, dyCenter, targetPx, targetPx);
+        }
+        xCtx.stroke();
+
         xCtx.setLineDash([]); // Reset line dash
 
         return exportCanvas;
@@ -263,11 +281,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const dxCenter = (previewW - previewTargetPx) / 2;
         const dyCenter = (previewH - previewTargetPx) / 2;
 
+        const shape = shapeSelect.value;
+        const radius = previewTargetPx / 2;
+        const centerX = dxCenter + radius;
+        const centerY = dyCenter + radius;
+
         previewCtx.save();
 
         // Clip to the preview target box
         previewCtx.beginPath();
-        previewCtx.rect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
+        if (shape === 'circle') {
+            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        } else {
+            previewCtx.rect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
+        }
         previewCtx.clip();
 
         // Include mouse-drag offset
@@ -285,7 +312,15 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCtx.strokeStyle = "rgba(0, 0, 0, 1)";
         previewCtx.lineWidth = 1;
         previewCtx.setLineDash([5, 5]);
-        previewCtx.strokeRect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
+
+        previewCtx.beginPath();
+        if (shape === 'circle') {
+            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+        } else {
+            previewCtx.rect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
+        }
+        previewCtx.stroke();
+
         previewCtx.setLineDash([]);
 
         previewCtx.fillStyle = "#f0f0f0";
