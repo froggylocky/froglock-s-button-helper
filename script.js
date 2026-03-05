@@ -111,7 +111,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     });
 
-    [paperWInput, paperHInput, targetSizeInput, dpiInput].forEach(input => {
+    const buttonQtyInput = document.getElementById('button-qty');
+
+    [paperWInput, paperHInput, targetSizeInput, dpiInput, buttonQtyInput].forEach(input => {
         input.addEventListener('input', updatePreview);
     });
 
@@ -212,19 +214,32 @@ document.addEventListener('DOMContentLoaded', () => {
         // convert mm target to cm for comparison with paper size
         const targetCm = targetMm / 10;
 
+        const targetPx = (targetCm / 2.54) * dpi;
+        const paperWPx = (paperWCm / 2.54) * dpi;
+        const paperHPx = (paperHCm / 2.54) * dpi;
+
+        const qty = parseInt(document.getElementById('button-qty').value) || 1;
+        const gapPx = (2 / 10 / 2.54) * dpi; // 2mm gap
+        let maxCols = Math.floor((paperWPx + gapPx) / (targetPx + gapPx));
+        if (maxCols < 1) maxCols = 1;
+        const cols = Math.min(qty, maxCols);
+        const rows = Math.ceil(qty / cols);
+        const gridWidthPx = cols * targetPx + Math.max(0, cols - 1) * gapPx;
+        const gridHeightPx = rows * targetPx + Math.max(0, rows - 1) * gapPx;
+
         // Check bounds
-        if (targetCm > paperWCm || targetCm > paperHCm) {
+        if (gridWidthPx > paperWPx || gridHeightPx > paperHPx) {
+            warningText.innerText = "Quantity is too large for paper size!";
+            warningText.classList.remove('hidden');
+        } else if (targetCm > paperWCm || targetCm > paperHCm) {
+            warningText.innerText = "Target size is larger than paper size!";
             warningText.classList.remove('hidden');
         } else {
             warningText.classList.add('hidden');
         }
 
-        const targetPx = (targetCm / 2.54) * dpi;
-        const paperWPx = (paperWCm / 2.54) * dpi;
-        const paperHPx = (paperHCm / 2.54) * dpi;
-
         return {
-            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm
+            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty, gapPx, cols, rows, gridWidthPx, gridHeightPx
         };
     }
 
@@ -269,44 +284,49 @@ document.addEventListener('DOMContentLoaded', () => {
         const printCropX = cropX / paperScale;
         const printCropY = cropY / paperScale;
 
-        // Standard center calculation
-        const dxCenter = (s.paperWPx - s.targetPx) / 2;
-        const dyCenter = (s.paperHPx - s.targetPx) / 2;
+        // Grid start coordinates to center the entire block on the paper
+        const startOffX = (s.paperWPx - s.gridWidthPx) / 2;
+        const startOffY = (s.paperHPx - s.gridHeightPx) / 2;
 
         const radius = targetPx / 2;
-        const centerX = dxCenter + radius;
-        const centerY = dyCenter + radius;
 
-        // Draw centered and masked by target shape
-        xCtx.save();
+        for (let i = 0; i < s.qty; i++) {
+            const c = i % s.cols;
+            const r = Math.floor(i / s.cols);
 
-        // Create clipping mask exactly at the target shape
-        xCtx.beginPath();
-        xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        xCtx.clip();
+            const itemX = startOffX + c * (targetPx + s.gapPx);
+            const itemY = startOffY + r * (targetPx + s.gapPx);
 
-        // Where to start drawing the top left corner of the image
-        const imgOffsetX = dxCenter + (targetPx - scaledDrawSizeX) / 2 + printCropX;
-        const imgOffsetY = dyCenter + (targetPx - scaledDrawSizeY) / 2 + printCropY;
+            const centerX = itemX + radius;
+            const centerY = itemY + radius;
 
-        xCtx.drawImage(
-            img,
-            0, 0, img.width, img.height, // source (entire image)
-            imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY // destination
-        );
+            // Draw centered and masked by target shape
+            xCtx.save();
+            xCtx.beginPath();
+            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            xCtx.clip();
 
-        xCtx.restore();
+            const imgOffsetX = itemX + (targetPx - scaledDrawSizeX) / 2 + printCropX;
+            const imgOffsetY = itemY + (targetPx - scaledDrawSizeY) / 2 + printCropY;
 
-        // Draw a dashed black outline around the target area for fully transparent images
-        xCtx.strokeStyle = "rgba(0, 0, 0, 1)";
-        xCtx.lineWidth = Math.max(1, targetPx * 0.005); // dynamic line width
-        xCtx.setLineDash([15, 15]);
+            xCtx.drawImage(
+                img,
+                0, 0, img.width, img.height, // source
+                imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY // destination
+            );
 
-        xCtx.beginPath();
-        xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        xCtx.stroke();
+            xCtx.restore();
 
-        xCtx.setLineDash([]); // Reset line dash
+            // Draw a dashed black outline around the target area for fully transparent images
+            xCtx.strokeStyle = "rgba(0, 0, 0, 1)";
+            xCtx.lineWidth = Math.max(1, targetPx * 0.005);
+            xCtx.setLineDash([15, 15]);
+
+            xCtx.beginPath();
+            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            xCtx.stroke();
+            xCtx.setLineDash([]); // Reset line dash
+        }
 
         return exportCanvas;
     }
