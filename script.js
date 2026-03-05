@@ -326,7 +326,7 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCtx.fillStyle = "#f0f0f0";
         previewCtx.font = "12px sans-serif";
         previewCtx.fillText(`Paper: ${settings.paperWCm}x${settings.paperHCm}cm`, 10, 20);
-        previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, dx, dy - 6);
+        previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, dxCenter, dyCenter - 6);
     }
 
     exportBtn.addEventListener('click', () => {
