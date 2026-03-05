@@ -12,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewCtx = previewCanvas.getContext('2d');
     const cropControls = document.getElementById('crop-controls');
     const zoomSlider = document.getElementById('zoom-slider');
-    const shapeSelect = document.getElementById('shape-select');
 
     let currentImageData = null;
     let cropX = 0; // panning offset X
@@ -65,8 +64,6 @@ document.addEventListener('DOMContentLoaded', () => {
     [paperWInput, paperHInput, targetSizeInput, dpiInput].forEach(input => {
         input.addEventListener('input', updatePreview);
     });
-
-    shapeSelect.addEventListener('change', updatePreview);
     zoomSlider.addEventListener('input', updatePreview);
 
     // Panning logic
@@ -195,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const dxCenter = (s.paperWPx - s.targetPx) / 2;
         const dyCenter = (s.paperHPx - s.targetPx) / 2;
 
-        const shape = shapeSelect.value;
         const radius = targetPx / 2;
         const centerX = dxCenter + radius;
         const centerY = dyCenter + radius;
@@ -205,11 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Create clipping mask exactly at the target shape
         xCtx.beginPath();
-        if (shape === 'circle') {
-            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        } else {
-            xCtx.rect(dxCenter, dyCenter, targetPx, targetPx);
-        }
+        xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         xCtx.clip();
 
         // Where to start drawing the top left corner of the image
@@ -230,11 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
         xCtx.setLineDash([15, 15]);
 
         xCtx.beginPath();
-        if (shape === 'circle') {
-            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        } else {
-            xCtx.rect(dxCenter, dyCenter, targetPx, targetPx);
-        }
+        xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         xCtx.stroke();
 
         xCtx.setLineDash([]); // Reset line dash
@@ -282,7 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const dxCenter = (previewW - previewTargetPx) / 2;
         const dyCenter = (previewH - previewTargetPx) / 2;
 
-        const shape = shapeSelect.value;
         const radius = previewTargetPx / 2;
         const centerX = dxCenter + radius;
         const centerY = dyCenter + radius;
@@ -291,11 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Clip to the preview target box
         previewCtx.beginPath();
-        if (shape === 'circle') {
-            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        } else {
-            previewCtx.rect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
-        }
+        previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         previewCtx.clip();
 
         // Include mouse-drag offset
@@ -315,13 +298,23 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCtx.setLineDash([5, 5]);
 
         previewCtx.beginPath();
-        if (shape === 'circle') {
-            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        } else {
-            previewCtx.rect(dxCenter, dyCenter, previewTargetPx, previewTargetPx);
-        }
+        previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
         previewCtx.stroke();
 
+        previewCtx.setLineDash([]);
+
+        // Draw 3mm inner safe zone dashed line (only in preview)
+        // 3mm total reduction means target size - 3mm.
+        const innerMm = Math.max(1, settings.targetMm - 3);
+        const innerPx = innerMm * (previewTargetPx / settings.targetMm);
+        const innerRadius = innerPx / 2;
+
+        previewCtx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+        previewCtx.lineWidth = 1;
+        previewCtx.setLineDash([4, 4]);
+        previewCtx.beginPath();
+        previewCtx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+        previewCtx.stroke();
         previewCtx.setLineDash([]);
 
         previewCtx.fillStyle = "#f0f0f0";
