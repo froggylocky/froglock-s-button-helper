@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dpiInput = document.getElementById('dpi');
     const exportBtn = document.getElementById('export-btn');
     const warningText = document.getElementById('export-warning');
+    const previewCanvas = document.getElementById('preview-canvas');
     const previewCtx = previewCanvas.getContext('2d');
     const cropControls = document.getElementById('crop-controls');
     const zoomSlider = document.getElementById('zoom-slider');
