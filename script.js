@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewCtx = previewCanvas.getContext('2d');
     const cropControls = document.getElementById('crop-controls');
     const zoomSlider = document.getElementById('zoom-slider');
+    const xSlider = document.getElementById('x-slider');
+    const ySlider = document.getElementById('y-slider');
+    const undoBtn = document.getElementById('undo-btn');
+    const redoBtn = document.getElementById('redo-btn');
 
     let currentImageData = null;
     let cropX = 0; // panning offset X
@@ -19,6 +23,52 @@ document.addEventListener('DOMContentLoaded', () => {
     let isDragging = false;
     let dragStartX = 0;
     let dragStartY = 0;
+
+    let history = [];
+    let historyIndex = -1;
+
+    function saveHistory() {
+        // Remove future history if we are overwriting
+        if (historyIndex < history.length - 1) {
+            history = history.slice(0, historyIndex + 1);
+        }
+        history.push({
+            zoom: zoomSlider.value,
+            cropX: cropX,
+            cropY: cropY
+        });
+        historyIndex++;
+        updateUndoRedoButtons();
+    }
+
+    function updateUndoRedoButtons() {
+        undoBtn.disabled = historyIndex <= 0;
+        redoBtn.disabled = historyIndex >= history.length - 1;
+    }
+
+    undoBtn.addEventListener('click', () => {
+        if (historyIndex > 0) {
+            historyIndex--;
+            applyHistoryState();
+        }
+    });
+
+    redoBtn.addEventListener('click', () => {
+        if (historyIndex < history.length - 1) {
+            historyIndex++;
+            applyHistoryState();
+        }
+    });
+
+    function applyHistoryState() {
+        const state = history[historyIndex];
+        zoomSlider.value = state.zoom;
+        cropX = state.cropX;
+        cropY = state.cropY;
+        xSlider.value = cropX;
+        ySlider.value = cropY;
+        updatePreview();
+    }
 
     // Reset file input in case browser cached it
     fileInput.value = '';
@@ -64,7 +114,21 @@ document.addEventListener('DOMContentLoaded', () => {
     [paperWInput, paperHInput, targetSizeInput, dpiInput].forEach(input => {
         input.addEventListener('input', updatePreview);
     });
+
+    zoomSlider.addEventListener('change', saveHistory);
     zoomSlider.addEventListener('input', updatePreview);
+
+    xSlider.addEventListener('input', (e) => {
+        cropX = parseFloat(e.target.value);
+        updatePreview();
+    });
+    xSlider.addEventListener('change', saveHistory);
+
+    ySlider.addEventListener('input', (e) => {
+        cropY = parseFloat(e.target.value);
+        updatePreview();
+    });
+    ySlider.addEventListener('change', saveHistory);
 
     // Panning logic
     previewCanvas.addEventListener('mousedown', (e) => {
@@ -79,22 +143,32 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isDragging || !currentImageData) return;
         cropX = e.offsetX - dragStartX;
         cropY = e.offsetY - dragStartY;
+        xSlider.value = cropX;
+        ySlider.value = cropY;
         updatePreview();
     });
 
     previewCanvas.addEventListener('mouseup', () => {
-        isDragging = false;
-        previewCanvas.style.cursor = 'grab';
+        if (isDragging) {
+            isDragging = false;
+            previewCanvas.style.cursor = 'grab';
+            saveHistory();
+        }
     });
 
     previewCanvas.addEventListener('mouseleave', () => {
-        isDragging = false;
-        previewCanvas.style.cursor = currentImageData ? 'grab' : 'default';
+        if (isDragging) {
+            isDragging = false;
+            previewCanvas.style.cursor = currentImageData ? 'grab' : 'default';
+            saveHistory();
+        }
     });
 
     fileInput.addEventListener('change', (e) => {
         if (e.target.files.length) {
             const file = e.target.files[0];
+            fileInput.value = ''; // Immediately clear so it doesn't hold multiple files or same file twice
+
             const reader = new FileReader();
             reader.onload = (e) => {
                 const img = new Image();
@@ -103,6 +177,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     cropX = 0; // Reset panning on new image
                     cropY = 0;
                     zoomSlider.value = 1; // Reset zoom on new image
+                    xSlider.value = 0;
+                    ySlider.value = 0;
+
+                    history = [];
+                    historyIndex = -1;
+                    saveHistory(); // Initial state
+
                     exportBtn.disabled = false;
                     cropControls.classList.remove('hidden');
                     previewCanvas.style.cursor = 'grab';
