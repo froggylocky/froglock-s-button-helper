@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'A2': { w: 42.0, h: 59.4 },
         'A3': { w: 29.7, h: 42.0 },
         'A4': { w: 21.0, h: 29.7 },
+        'Letter': { w: 21.59, h: 27.94 },
         'ASize': { w: 70.0, h: 70.0 }
     };
 
