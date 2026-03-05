@@ -220,15 +220,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const qty = parseInt(document.getElementById('button-qty').value) || 1;
         const gapPx = (2 / 10 / 2.54) * dpi; // 2mm gap
-        let maxCols = Math.floor((paperWPx + gapPx) / (targetPx + gapPx));
+        const marginPx = (5 / 10 / 2.54) * dpi; // 5mm page margin
+
+        let maxCols = Math.floor((paperWPx - marginPx * 2 + gapPx) / (targetPx + gapPx));
         if (maxCols < 1) maxCols = 1;
         const cols = Math.min(qty, maxCols);
         const rows = Math.ceil(qty / cols);
         const gridWidthPx = cols * targetPx + Math.max(0, cols - 1) * gapPx;
         const gridHeightPx = rows * targetPx + Math.max(0, rows - 1) * gapPx;
 
-        // Check bounds
-        if (gridWidthPx > paperWPx || gridHeightPx > paperHPx) {
+        // Check bounds (include margins)
+        if (gridWidthPx > paperWPx - marginPx * 2 || gridHeightPx > paperHPx - marginPx * 2) {
             warningText.innerText = "Quantity is too large for paper size!";
             warningText.classList.remove('hidden');
         } else if (targetCm > paperWCm || targetCm > paperHCm) {
@@ -284,9 +286,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const printCropX = cropX / paperScale;
         const printCropY = cropY / paperScale;
 
-        // Grid start coordinates to center the entire block on the paper
-        const startOffX = (s.paperWPx - s.gridWidthPx) / 2;
-        const startOffY = (s.paperHPx - s.gridHeightPx) / 2;
+        // Grid start coordinates from top-left corner with 5mm print margin
+        const marginPx = (5 / 10 / 2.54) * s.dpi;
+        const startOffX = marginPx;
+        const startOffY = marginPx;
 
         const radius = targetPx / 2;
 
