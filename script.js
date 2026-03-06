@@ -123,10 +123,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const buttonQtyInput = document.getElementById('button-qty');
+    const layoutStyleSelect = document.getElementById('layout-style');
 
     [paperWInput, paperHInput, targetSizeInput, dpiInput, buttonQtyInput].forEach(input => {
         input.addEventListener('input', updatePreview);
     });
+    if (layoutStyleSelect) {
+        layoutStyleSelect.addEventListener('change', updatePreview);
+    }
 
     zoomSlider.addEventListener('change', saveHistory);
     zoomSlider.addEventListener('input', (e) => {
@@ -260,15 +264,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const paperHPx = (paperHCm / 2.54) * dpi;
 
         const qty = parseInt(document.getElementById('button-qty').value) || 1;
+        const layoutStyle = document.getElementById('layout-style') ? document.getElementById('layout-style').value : 'square';
         const gapPx = (2 / 10 / 2.54) * dpi; // 2mm gap
         const marginPx = (5 / 10 / 2.54) * dpi; // 5mm page margin
 
-        let maxCols = Math.floor((paperWPx - marginPx * 2 + gapPx) / (targetPx + gapPx));
+        const S = targetPx + gapPx;
+
+        let maxCols = Math.floor((paperWPx - marginPx * 2 + gapPx) / S);
         if (maxCols < 1) maxCols = 1;
-        const cols = Math.min(qty, maxCols);
-        const rows = Math.ceil(qty / cols);
-        const gridWidthPx = cols * targetPx + Math.max(0, cols - 1) * gapPx;
-        const gridHeightPx = rows * targetPx + Math.max(0, rows - 1) * gapPx;
+
+        let positions = [];
+        let gridWidthPx = 0;
+        let gridHeightPx = 0;
+
+        if (layoutStyle === 'staggered' && maxCols > 1) {
+            let yStep = S * Math.sqrt(3) / 2;
+            let currentQty = 0;
+            let row = 0;
+            while (currentQty < qty) {
+                let isOdd = row % 2 !== 0;
+                let colsInRow = isOdd ? maxCols - 1 : maxCols;
+                if (colsInRow < 1) colsInRow = 1;
+
+                let startX = isOdd ? S / 2 : 0;
+                let limit = Math.min(colsInRow, qty - currentQty);
+                for (let c = 0; c < limit; c++) {
+                    let itemX = startX + c * S;
+                    let itemY = row * yStep;
+                    positions.push({ x: itemX, y: itemY });
+
+                    gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
+                    gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+                }
+                currentQty += limit;
+                row++;
+            }
+        } else {
+            const cols = Math.min(qty, maxCols);
+            for (let i = 0; i < qty; i++) {
+                const c = i % cols;
+                const r = Math.floor(i / cols);
+                let itemX = c * S;
+                let itemY = r * S;
+                positions.push({ x: itemX, y: itemY });
+
+                gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
+                gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+            }
+        }
 
         // Check bounds (include margins)
         if (gridWidthPx > paperWPx - marginPx * 2 || gridHeightPx > paperHPx - marginPx * 2) {
@@ -282,7 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty, gapPx, cols, rows, gridWidthPx, gridHeightPx
+            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty, gapPx, maxCols, gridWidthPx, gridHeightPx, positions
         };
     }
 
@@ -335,11 +378,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const radius = targetPx / 2;
 
         for (let i = 0; i < s.qty; i++) {
-            const c = i % s.cols;
-            const r = Math.floor(i / s.cols);
+            const pos = s.positions[i];
 
-            const itemX = startOffX + c * (targetPx + s.gapPx);
-            const itemY = startOffY + r * (targetPx + s.gapPx);
+            const itemX = startOffX + pos.x;
+            const itemY = startOffY + pos.y;
 
             const centerX = itemX + radius;
             const centerY = itemY + radius;
