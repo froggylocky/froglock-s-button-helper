@@ -402,10 +402,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const printCropX = cropX / paperScale;
         const printCropY = cropY / paperScale;
 
-        // Grid start coordinates from top-left corner with 5mm print margin
-        const marginPx = (5 / 10 / 2.54) * s.dpi;
-        const startOffX = marginPx;
-        const startOffY = marginPx;
+        // Center the grid block on the paper
+        const startOffX = (s.paperWPx - s.gridWidthPx) / 2;
+        const startOffY = (s.paperHPx - s.gridHeightPx) / 2;
 
         const radius = targetPx / 2;
 
@@ -486,60 +485,76 @@ document.addEventListener('DOMContentLoaded', () => {
         const scaledDrawSizeX = img.width * scaleToTarget * zoom;
         const scaledDrawSizeY = img.height * scaleToTarget * zoom;
 
-        const dxCenter = (previewW - previewTargetPx) / 2;
-        const dyCenter = (previewH - previewTargetPx) / 2;
-
-        const radius = previewTargetPx / 2;
-        const centerX = dxCenter + radius;
-        const centerY = dyCenter + radius;
-
         previewCtx.save();
 
-        // Clip to the preview target box
-        previewCtx.beginPath();
-        previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        previewCtx.clip();
+        // Calculate a scaled representation of the full grid width/height on the preview
+        const previewGridWidthPx = settings.gridWidthPx * paperScale;
+        const previewGridHeightPx = settings.gridHeightPx * paperScale;
 
-        // Include mouse-drag offset
-        const imgOffsetX = dxCenter + (previewTargetPx - scaledDrawSizeX) / 2 + cropX;
-        const imgOffsetY = dyCenter + (previewTargetPx - scaledDrawSizeY) / 2 + cropY;
+        // Find scaled origin coordinates that center the block on the paper
+        const startOffX = (previewW - previewGridWidthPx) / 2;
+        const startOffY = (previewH - previewGridHeightPx) / 2;
 
-        previewCtx.drawImage(
-            img,
-            0, 0, img.width, img.height,
-            imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY
-        );
+        const radius = previewTargetPx / 2;
 
-        previewCtx.restore();
+        // Draw the preview layout using the exact same positions logic
+        for (let i = 0; i < settings.qty; i++) {
+            const pos = settings.positions[i];
 
-        previewCtx.strokeStyle = "rgba(0, 0, 0, 1)";
-        previewCtx.lineWidth = 1;
-        previewCtx.setLineDash([5, 5]);
+            const itemX = startOffX + pos.x * paperScale;
+            const itemY = startOffY + pos.y * paperScale;
 
-        previewCtx.beginPath();
-        previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-        previewCtx.stroke();
+            const centerX = itemX + radius;
+            const centerY = itemY + radius;
 
-        previewCtx.setLineDash([]);
+            previewCtx.save();
 
-        // Draw 10mm inner safe zone dashed line (only in preview)
-        // 10mm total reduction means target size - 10mm.
-        const innerMm = Math.max(1, settings.targetMm - 10);
-        const innerPx = innerMm * (previewTargetPx / settings.targetMm);
-        const innerRadius = innerPx / 2;
+            // Clip to the preview target box
+            previewCtx.beginPath();
+            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            previewCtx.clip();
 
-        previewCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
-        previewCtx.lineWidth = 1;
-        previewCtx.setLineDash([4, 4]);
-        previewCtx.beginPath();
-        previewCtx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
-        previewCtx.stroke();
-        previewCtx.setLineDash([]);
+            // Include mouse-drag offset
+            const imgOffsetX = itemX + (previewTargetPx - scaledDrawSizeX) / 2 + cropX;
+            const imgOffsetY = itemY + (previewTargetPx - scaledDrawSizeY) / 2 + cropY;
+
+            previewCtx.drawImage(
+                img,
+                0, 0, img.width, img.height,
+                imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY
+            );
+
+            previewCtx.restore();
+
+            previewCtx.strokeStyle = "rgba(0, 0, 0, 1)";
+            previewCtx.lineWidth = 1;
+            previewCtx.setLineDash([5, 5]);
+
+            previewCtx.beginPath();
+            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+            previewCtx.stroke();
+
+            previewCtx.setLineDash([]);
+
+            // Draw 10mm inner safe zone dashed line (only in preview)
+            const innerMm = Math.max(1, settings.targetMm - 10);
+            const innerPx = innerMm * (previewTargetPx / settings.targetMm);
+            const innerRadius = innerPx / 2;
+
+            previewCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+            previewCtx.lineWidth = 1;
+            previewCtx.setLineDash([4, 4]);
+            previewCtx.beginPath();
+            previewCtx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+            previewCtx.stroke();
+            previewCtx.setLineDash([]);
+        }
 
         previewCtx.fillStyle = "#f0f0f0";
         previewCtx.font = "12px sans-serif";
         previewCtx.fillText(`Paper: ${settings.paperWCm}x${settings.paperHCm}cm`, 10, 20);
-        previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, dxCenter, dyCenter - 6);
+        previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, 10, 40);
+        previewCtx.restore();
     }
 
     let currentExportCanvas = null;
