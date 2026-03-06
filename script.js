@@ -14,8 +14,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const zoomSlider = document.getElementById('zoom-slider');
     const xSlider = document.getElementById('x-slider');
     const ySlider = document.getElementById('y-slider');
+    const zoomNumber = document.getElementById('zoom-number');
+    const xNumber = document.getElementById('x-number');
+    const yNumber = document.getElementById('y-number');
     const undoBtn = document.getElementById('undo-btn');
     const redoBtn = document.getElementById('redo-btn');
+    const exportModal = document.getElementById('export-modal');
+    const modalCanvas = document.getElementById('modal-canvas');
+    const modalCtx = modalCanvas.getContext('2d');
+    const modalCancelBtn = document.getElementById('modal-cancel-btn');
+    const modalDownloadBtn = document.getElementById('modal-download-btn');
 
     let currentImageData = null;
     let cropX = 0; // panning offset X
@@ -63,10 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
     function applyHistoryState() {
         const state = history[historyIndex];
         zoomSlider.value = state.zoom;
+        zoomNumber.value = state.zoom;
         cropX = state.cropX;
         cropY = state.cropY;
         xSlider.value = cropX;
+        xNumber.value = cropX;
         ySlider.value = cropY;
+        yNumber.value = cropY;
         updatePreview();
     }
 
@@ -118,19 +129,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     zoomSlider.addEventListener('change', saveHistory);
-    zoomSlider.addEventListener('input', updatePreview);
+    zoomSlider.addEventListener('input', (e) => {
+        zoomNumber.value = e.target.value;
+        updatePreview();
+    });
+
+    zoomNumber.addEventListener('change', saveHistory);
+    zoomNumber.addEventListener('input', (e) => {
+        zoomSlider.value = e.target.value;
+        updatePreview();
+    });
 
     xSlider.addEventListener('input', (e) => {
         cropX = parseFloat(e.target.value);
+        xNumber.value = cropX;
         updatePreview();
     });
     xSlider.addEventListener('change', saveHistory);
 
+    xNumber.addEventListener('input', (e) => {
+        cropX = parseFloat(e.target.value);
+        xSlider.value = cropX;
+        updatePreview();
+    });
+    xNumber.addEventListener('change', saveHistory);
+
     ySlider.addEventListener('input', (e) => {
         cropY = parseFloat(e.target.value);
+        yNumber.value = cropY;
         updatePreview();
     });
     ySlider.addEventListener('change', saveHistory);
+
+    yNumber.addEventListener('input', (e) => {
+        cropY = parseFloat(e.target.value);
+        ySlider.value = cropY;
+        updatePreview();
+    });
+    yNumber.addEventListener('change', saveHistory);
 
     // Panning logic
     previewCanvas.addEventListener('mousedown', (e) => {
@@ -146,7 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
         cropX = e.offsetX - dragStartX;
         cropY = e.offsetY - dragStartY;
         xSlider.value = cropX;
+        xNumber.value = cropX;
         ySlider.value = cropY;
+        yNumber.value = cropY;
         updatePreview();
     });
 
@@ -179,8 +217,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     cropX = 0; // Reset panning on new image
                     cropY = 0;
                     zoomSlider.value = 1; // Reset zoom on new image
+                    zoomNumber.value = 1;
                     xSlider.value = 0;
+                    xNumber.value = 0;
                     ySlider.value = 0;
+                    yNumber.value = 0;
 
                     history = [];
                     historyIndex = -1;
@@ -427,6 +468,8 @@ document.addEventListener('DOMContentLoaded', () => {
         previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, dxCenter, dyCenter - 6);
     }
 
+    let currentExportCanvas = null;
+
     exportBtn.addEventListener('click', () => {
         if (exportBtn.disabled) return;
 
@@ -435,23 +478,48 @@ document.addEventListener('DOMContentLoaded', () => {
         exportBtn.disabled = true;
 
         setTimeout(() => {
-            const canvas = generatePrintCanvas();
-            if (canvas) {
-                canvas.toBlob((blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.download = `print_${targetSizeInput.value}mm.png`;
-                    link.href = url;
-                    link.click();
-                    URL.revokeObjectURL(url);
+            currentExportCanvas = generatePrintCanvas();
+            if (currentExportCanvas) {
+                // Show modal and draw preview
+                exportModal.classList.remove('hidden');
+                modalCanvas.width = currentExportCanvas.width;
+                modalCanvas.height = currentExportCanvas.height;
+                modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
+                modalCtx.drawImage(currentExportCanvas, 0, 0);
 
-                    exportBtn.innerText = originalText;
-                    exportBtn.disabled = false;
-                }, 'image/png');
+                exportBtn.innerText = originalText;
+                exportBtn.disabled = false;
             } else {
                 exportBtn.innerText = originalText;
                 exportBtn.disabled = false;
             }
         }, 50);
+    });
+
+    modalCancelBtn.addEventListener('click', () => {
+        exportModal.classList.add('hidden');
+        currentExportCanvas = null;
+    });
+
+    modalDownloadBtn.addEventListener('click', () => {
+        if (!currentExportCanvas) return;
+
+        const originalText = modalDownloadBtn.innerText;
+        modalDownloadBtn.innerText = 'Downloading...';
+        modalDownloadBtn.disabled = true;
+
+        currentExportCanvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.download = `print_${targetSizeInput.value}mm.png`;
+            link.href = url;
+            link.click();
+            URL.revokeObjectURL(url);
+
+            modalDownloadBtn.innerText = originalText;
+            modalDownloadBtn.disabled = false;
+            exportModal.classList.add('hidden');
+            currentExportCanvas = null;
+        }, 'image/png');
     });
 });
