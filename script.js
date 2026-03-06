@@ -124,12 +124,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buttonQtyInput = document.getElementById('button-qty');
     const layoutStyleSelect = document.getElementById('layout-style');
+    const gridRowsSelect = document.getElementById('grid-rows');
 
     [paperWInput, paperHInput, targetSizeInput, dpiInput, buttonQtyInput].forEach(input => {
         input.addEventListener('input', updatePreview);
     });
     if (layoutStyleSelect) {
         layoutStyleSelect.addEventListener('change', updatePreview);
+    }
+    if (gridRowsSelect) {
+        gridRowsSelect.addEventListener('change', updatePreview);
     }
 
     zoomSlider.addEventListener('change', saveHistory);
@@ -265,12 +269,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const qty = parseInt(document.getElementById('button-qty').value) || 1;
         const layoutStyle = document.getElementById('layout-style') ? document.getElementById('layout-style').value : 'square';
+        const limitRows = document.getElementById('grid-rows') ? parseInt(document.getElementById('grid-rows').value) : 0;
         const gapPx = (2 / 10 / 2.54) * dpi; // 2mm gap
         const marginPx = (5 / 10 / 2.54) * dpi; // 5mm page margin
 
         const S = targetPx + gapPx;
 
-        let maxCols = Math.floor((paperWPx - marginPx * 2 + gapPx) / S);
+        const maxWidthAllowed = paperWPx - marginPx * 2;
+        const maxHeightAllowed = paperHPx - marginPx * 2;
+
+        let maxCols = Math.floor((maxWidthAllowed + gapPx) / S);
         if (maxCols < 1) maxCols = 1;
 
         let positions = [];
@@ -282,6 +290,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let currentQty = 0;
             let row = 0;
             while (currentQty < qty) {
+                if (limitRows > 0 && row >= limitRows) break;
+
                 let isOdd = row % 2 !== 0;
                 let colsInRow = isOdd ? maxCols - 1 : maxCols;
                 if (colsInRow < 1) colsInRow = 1;
@@ -291,6 +301,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 for (let c = 0; c < limit; c++) {
                     let itemX = startX + c * S;
                     let itemY = row * yStep;
+
+                    // Bleed check
+                    if (itemX + targetPx > maxWidthAllowed || itemY + targetPx > maxHeightAllowed) continue;
+
                     positions.push({ x: itemX, y: itemY });
 
                     gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
@@ -298,20 +312,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 currentQty += limit;
                 row++;
+
+                // Stop generating if next row will bleed vertically
+                if (row * yStep + targetPx > maxHeightAllowed) break;
             }
         } else {
-            const cols = Math.min(qty, maxCols);
-            for (let i = 0; i < qty; i++) {
-                const c = i % cols;
-                const r = Math.floor(i / cols);
-                let itemX = c * S;
-                let itemY = r * S;
-                positions.push({ x: itemX, y: itemY });
+            let currentQty = 0;
+            let row = 0;
+            while (currentQty < qty) {
+                if (limitRows > 0 && row >= limitRows) break;
 
-                gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
-                gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+                let limit = Math.min(maxCols, qty - currentQty);
+                for (let c = 0; c < limit; c++) {
+                    let itemX = c * S;
+                    let itemY = row * S;
+
+                    // Bleed check
+                    if (itemX + targetPx > maxWidthAllowed || itemY + targetPx > maxHeightAllowed) continue;
+
+                    positions.push({ x: itemX, y: itemY });
+
+                    gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
+                    gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+                }
+                currentQty += limit;
+                row++;
+
+                // Stop generating if next row will bleed vertically
+                if (row * S + targetPx > maxHeightAllowed) break;
             }
         }
+
+        const fitQty = positions.length;
 
         // Check bounds (include margins)
         if (gridWidthPx > paperWPx - marginPx * 2 || gridHeightPx > paperHPx - marginPx * 2) {
@@ -325,7 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return {
-            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty, gapPx, maxCols, gridWidthPx, gridHeightPx, positions
+            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty: fitQty, gapPx, maxCols, gridWidthPx, gridHeightPx, positions
         };
     }
 

@@ -18,12 +18,11 @@
                 <div class="control-group">
                     <label for="paper-size">Paper Size</label>
                     <select id="paper-size">
-                        <option value="A4">A4 (21 x 29.7 cm)</option>
+                        <option value="A4" selected>A4 (21 x 29.7 cm)</option>
                         <option value="A3">A3 (29.7 x 42 cm)</option>
                         <option value="A2">A2 (42 x 59.4 cm)</option>
                         <option value="A1">A1 (59.4 x 84.1 cm)</option>
                         <option value="Letter">Letter (21.59 x 27.94 cm)</option>
-                        <option value="ASize" selected>Large Paper (70 x 70 cm)</option>
                         <option value="custom">Custom Size</option>
                     </select>
                 </div>
@@ -31,9 +30,9 @@
                 <div class="control-group custom-dimensions hidden">
                     <label>Paper Size (cm)</label>
                     <div class="input-row">
-                        <input type="number" id="paper-w" value="70" step="0.1">
+                        <input type="number" id="paper-w" value="21" step="0.1">
                         <span>×</span>
-                        <input type="number" id="paper-h" value="70" step="0.1">
+                        <input type="number" id="paper-h" value="29.7" step="0.1">
                     </div>
                 </div>
 
@@ -58,6 +57,15 @@
                     <select id="layout-style">
                         <option value="square">Square Grid (Standard)</option>
                         <option value="staggered">Staggered Grid (Compact)</option>
+                    </select>
+                </div>
+
+                <div class="control-group">
+                    <label for="grid-rows">Row Limit</label>
+                    <select id="grid-rows">
+                        <option value="0">Auto-Fit (No Limit)</option>
+                        <option value="2">Max 2 Rows</option>
+                        <option value="3">Max 3 Rows</option>
                     </select>
                 </div>
 
