@@ -38,7 +38,7 @@
 
                 <div class="control-group">
                     <label for="target-size">Target Size (mm)</label>
-                    <input type="number" id="target-size" value="58" step="1">
+                    <input type="number" id="target-size" value="70" step="1">
                 </div>
 
 
@@ -48,8 +48,8 @@
                 </div>
 
                 <div class="control-group">
-                    <label for="button-qty">Button Quantity</label>
-                    <input type="number" id="button-qty" value="1" min="1" step="1" title="How many copies to print">
+                    <label for="button-qty">Active Image Quantity</label>
+                    <input type="number" id="button-qty" value="1" min="1" step="1" title="How many copies of the selected image to print">
                 </div>
 
                 <div class="control-group">
@@ -70,8 +70,13 @@
                 </div>
 
                 <div class="control-group">
-                    <label>Upload Image</label>
-                    <input type="file" id="file-input" accept="image/*" title="Select a single image limit to 1">
+                    <label>Upload Images</label>
+                    <input type="file" id="file-input" accept="image/*" multiple title="Select one or more images">
+                </div>
+
+                <div class="control-group hidden" id="images-list-container">
+                    <label>Uploaded Images</label>
+                    <div id="images-list" class="images-list"></div>
                 </div>
 
                 <div class="control-group hidden" id="crop-controls">
