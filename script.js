@@ -24,91 +24,86 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalCtx = modalCanvas.getContext('2d');
     const modalCancelBtn = document.getElementById('modal-cancel-btn');
     const modalDownloadBtn = document.getElementById('modal-download-btn');
+    const buttonQtyInput = document.getElementById('button-qty');
+    const layoutStyleSelect = document.getElementById('layout-style');
+    const gridRowsSelect = document.getElementById('grid-rows');
+    const imagesListContainer = document.getElementById('images-list-container');
+    const imagesList = document.getElementById('images-list');
 
-    let currentImageData = null;
-    let cropX = 0; // panning offset X
-    let cropY = 0; // panning offset Y
+    // ---- Multi-image state ----
+    // Each entry: { id, name, img, zoom, cropX, cropY, qty, history, historyIndex }
+    let images = [];
+    let activeImageId = null;
+
     let isDragging = false;
     let dragStartX = 0;
     let dragStartY = 0;
 
-    let history = [];
-    let historyIndex = -1;
+    function getActiveImage() {
+        return images.find(img => img.id === activeImageId) || null;
+    }
 
+    // ---- Undo / Redo ----
     function saveHistory() {
-        // Remove future history if we are overwriting
-        if (historyIndex < history.length - 1) {
-            history = history.slice(0, historyIndex + 1);
+        const activeImg = getActiveImage();
+        if (!activeImg) return;
+        if (activeImg.historyIndex < activeImg.history.length - 1) {
+            activeImg.history = activeImg.history.slice(0, activeImg.historyIndex + 1);
         }
-        history.push({
-            zoom: zoomSlider.value,
-            cropX: cropX,
-            cropY: cropY
-        });
-        historyIndex++;
+        activeImg.history.push({ zoom: activeImg.zoom, cropX: activeImg.cropX, cropY: activeImg.cropY });
+        activeImg.historyIndex++;
         updateUndoRedoButtons();
     }
 
     function updateUndoRedoButtons() {
-        undoBtn.disabled = historyIndex <= 0;
-        redoBtn.disabled = historyIndex >= history.length - 1;
+        const a = getActiveImage();
+        undoBtn.disabled = !a || a.historyIndex <= 0;
+        redoBtn.disabled = !a || a.historyIndex >= a.history.length - 1;
     }
 
     undoBtn.addEventListener('click', () => {
-        if (historyIndex > 0) {
-            historyIndex--;
-            applyHistoryState();
-        }
+        const a = getActiveImage();
+        if (a && a.historyIndex > 0) { a.historyIndex--; applyHistoryState(); }
     });
 
     redoBtn.addEventListener('click', () => {
-        if (historyIndex < history.length - 1) {
-            historyIndex++;
-            applyHistoryState();
-        }
+        const a = getActiveImage();
+        if (a && a.historyIndex < a.history.length - 1) { a.historyIndex++; applyHistoryState(); }
     });
 
     function applyHistoryState() {
-        const state = history[historyIndex];
-        zoomSlider.value = state.zoom;
-        zoomNumber.value = state.zoom;
-        cropX = state.cropX;
-        cropY = state.cropY;
-        xSlider.value = cropX;
-        xNumber.value = cropX;
-        ySlider.value = cropY;
-        yNumber.value = cropY;
+        const a = getActiveImage();
+        if (!a) return;
+        const s = a.history[a.historyIndex];
+        a.zoom = s.zoom; a.cropX = s.cropX; a.cropY = s.cropY;
+        zoomSlider.value = a.zoom; zoomNumber.value = a.zoom;
+        xSlider.value = a.cropX; xNumber.value = a.cropX;
+        ySlider.value = a.cropY; yNumber.value = a.cropY;
+        updateUndoRedoButtons();
         updatePreview();
     }
 
-    // Reset file input in case browser cached it
+    // ---- Canvas init ----
     fileInput.value = '';
 
-    // Draw initial blank state
     function initCanvas() {
-        const previewW = 600;
-        const previewH = 600;
-        previewCanvas.width = previewW;
-        previewCanvas.height = previewH;
-        previewCtx.fillStyle = "#424241";
-        previewCtx.fillRect(0, 0, previewW, previewH);
-
-        previewCtx.fillStyle = "#f0f0f0";
-        previewCtx.font = "14px sans-serif";
-        previewCtx.textAlign = "center";
-        previewCtx.fillText("Upload an image to start cropping", previewW / 2, previewH / 2);
-        previewCtx.textAlign = "start"; // Reset
+        const W = 600, H = 600;
+        previewCanvas.width = W; previewCanvas.height = H;
+        previewCtx.fillStyle = '#424241';
+        previewCtx.fillRect(0, 0, W, H);
+        previewCtx.fillStyle = '#f0f0f0';
+        previewCtx.font = '14px sans-serif';
+        previewCtx.textAlign = 'center';
+        previewCtx.fillText('Upload images to start cropping', W / 2, H / 2);
+        previewCtx.textAlign = 'start';
     }
     initCanvas();
 
-    // Paper sizes in cm
+    // ---- Paper sizes ----
     const paperDimensions = {
-        'A1': { w: 59.4, h: 84.1 },
-        'A2': { w: 42.0, h: 59.4 },
-        'A3': { w: 29.7, h: 42.0 },
-        'A4': { w: 21.0, h: 29.7 },
-        'Letter': { w: 21.59, h: 27.94 },
-        'ASize': { w: 70.0, h: 70.0 }
+        'A1': { w: 59.4, h: 84.1 }, 'A2': { w: 42.0, h: 59.4 },
+        'A3': { w: 29.7, h: 42.0 }, 'A4': { w: 21.0, h: 29.7 },
+        'Letter': { w: 21.59, h: 27.94 }, 'ASize': { w: 70.0, h: 70.0 }
     };
 
     paperSizeSelect.addEventListener('change', (e) => {
@@ -122,493 +117,494 @@ document.addEventListener('DOMContentLoaded', () => {
         updatePreview();
     });
 
-    const buttonQtyInput = document.getElementById('button-qty');
-    const layoutStyleSelect = document.getElementById('layout-style');
-    const gridRowsSelect = document.getElementById('grid-rows');
+    [paperWInput, paperHInput, targetSizeInput, dpiInput].forEach(i => i.addEventListener('input', updatePreview));
+    if (layoutStyleSelect) layoutStyleSelect.addEventListener('change', updatePreview);
+    if (gridRowsSelect) gridRowsSelect.addEventListener('change', updatePreview);
 
-    [paperWInput, paperHInput, targetSizeInput, dpiInput, buttonQtyInput].forEach(input => {
-        input.addEventListener('input', updatePreview);
-    });
-    if (layoutStyleSelect) {
-        layoutStyleSelect.addEventListener('change', updatePreview);
-    }
-    if (gridRowsSelect) {
-        gridRowsSelect.addEventListener('change', updatePreview);
+    // Active image quantity global input
+    if (buttonQtyInput) {
+        buttonQtyInput.addEventListener('input', (e) => {
+            const a = getActiveImage();
+            if (!a) return;
+            a.qty = Math.max(1, parseInt(e.target.value) || 1);
+            const listInput = document.querySelector(`.image-item[data-id="${a.id}"] .image-qty-input`);
+            if (listInput) listInput.value = a.qty;
+            updatePreview();
+        });
     }
 
-    zoomSlider.addEventListener('change', saveHistory);
+    // ---- Crop controls ----
     zoomSlider.addEventListener('input', (e) => {
-        zoomNumber.value = e.target.value;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.zoom = parseFloat(e.target.value); zoomNumber.value = a.zoom; updatePreview();
     });
+    zoomSlider.addEventListener('change', saveHistory);
 
-    zoomNumber.addEventListener('change', saveHistory);
     zoomNumber.addEventListener('input', (e) => {
-        zoomSlider.value = e.target.value;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.zoom = parseFloat(e.target.value); zoomSlider.value = a.zoom; updatePreview();
     });
+    zoomNumber.addEventListener('change', saveHistory);
 
     xSlider.addEventListener('input', (e) => {
-        cropX = parseFloat(e.target.value);
-        xNumber.value = cropX;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.cropX = parseFloat(e.target.value); xNumber.value = a.cropX; updatePreview();
     });
     xSlider.addEventListener('change', saveHistory);
 
     xNumber.addEventListener('input', (e) => {
-        cropX = parseFloat(e.target.value);
-        xSlider.value = cropX;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.cropX = parseFloat(e.target.value); xSlider.value = a.cropX; updatePreview();
     });
     xNumber.addEventListener('change', saveHistory);
 
     ySlider.addEventListener('input', (e) => {
-        cropY = parseFloat(e.target.value);
-        yNumber.value = cropY;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.cropY = parseFloat(e.target.value); yNumber.value = a.cropY; updatePreview();
     });
     ySlider.addEventListener('change', saveHistory);
 
     yNumber.addEventListener('input', (e) => {
-        cropY = parseFloat(e.target.value);
-        ySlider.value = cropY;
-        updatePreview();
+        const a = getActiveImage(); if (!a) return;
+        a.cropY = parseFloat(e.target.value); ySlider.value = a.cropY; updatePreview();
     });
     yNumber.addEventListener('change', saveHistory);
 
-    // Panning logic
+    // ---- Canvas mouse: click-to-select + drag to pan ----
     previewCanvas.addEventListener('mousedown', (e) => {
-        if (!currentImageData) return;
+        if (images.length === 0) return;
+
+        const settings = getPrintSettings();
+        const paperRatio = settings.paperWCm / settings.paperHCm;
+        const maxPreviewSize = 600;
+        const previewW = paperRatio >= 1 ? maxPreviewSize : maxPreviewSize * paperRatio;
+        const paperScale = previewW / settings.paperWPx;
+        const previewTargetPx = settings.targetPx * paperScale;
+        const radius = previewTargetPx / 2;
+        const previewGridW = settings.gridWidthPx * paperScale;
+        const previewGridH = settings.gridHeightPx * paperScale;
+        const previewH = paperRatio >= 1 ? maxPreviewSize / paperRatio : maxPreviewSize;
+        const startOffX = (previewW - previewGridW) / 2;
+        const startOffY = (previewH - previewGridH) / 2;
+
+        const flat = buildFlatList();
+
+        let clickedIdx = -1;
+        for (let i = 0; i < settings.qty; i++) {
+            const pos = settings.positions[i];
+            const cx = startOffX + pos.x * paperScale + radius;
+            const cy = startOffY + pos.y * paperScale + radius;
+            const dx = e.offsetX - cx, dy = e.offsetY - cy;
+            if (dx * dx + dy * dy <= radius * radius) { clickedIdx = i; break; }
+        }
+
+        if (clickedIdx !== -1 && flat[clickedIdx] && flat[clickedIdx].id !== activeImageId) {
+            activeImageId = flat[clickedIdx].id;
+            onActiveImageChanged();
+        }
+
+        const a = getActiveImage();
+        if (!a) return;
         isDragging = true;
-        dragStartX = e.offsetX - cropX;
-        dragStartY = e.offsetY - cropY;
+        dragStartX = e.offsetX - a.cropX;
+        dragStartY = e.offsetY - a.cropY;
         previewCanvas.style.cursor = 'grabbing';
     });
 
     previewCanvas.addEventListener('mousemove', (e) => {
-        if (!isDragging || !currentImageData) return;
-        cropX = e.offsetX - dragStartX;
-        cropY = e.offsetY - dragStartY;
-        xSlider.value = cropX;
-        xNumber.value = cropX;
-        ySlider.value = cropY;
-        yNumber.value = cropY;
+        const a = getActiveImage();
+        if (!isDragging || !a) return;
+        a.cropX = e.offsetX - dragStartX; a.cropY = e.offsetY - dragStartY;
+        xSlider.value = a.cropX; xNumber.value = a.cropX;
+        ySlider.value = a.cropY; yNumber.value = a.cropY;
         updatePreview();
     });
 
     previewCanvas.addEventListener('mouseup', () => {
-        if (isDragging) {
-            isDragging = false;
-            previewCanvas.style.cursor = 'grab';
-            saveHistory();
-        }
+        if (isDragging) { isDragging = false; previewCanvas.style.cursor = getActiveImage() ? 'grab' : 'default'; saveHistory(); }
     });
 
     previewCanvas.addEventListener('mouseleave', () => {
-        if (isDragging) {
-            isDragging = false;
-            previewCanvas.style.cursor = currentImageData ? 'grab' : 'default';
-            saveHistory();
-        }
+        if (isDragging) { isDragging = false; previewCanvas.style.cursor = getActiveImage() ? 'grab' : 'default'; saveHistory(); }
     });
 
+    // ---- File upload (multiple) ----
     fileInput.addEventListener('change', (e) => {
-        if (e.target.files.length) {
-            const file = e.target.files[0];
-            fileInput.value = ''; // Immediately clear so it doesn't hold multiple files or same file twice
-
+        if (!e.target.files.length) return;
+        const files = Array.from(e.target.files);
+        fileInput.value = '';
+        let loaded = 0;
+        files.forEach(file => {
             const reader = new FileReader();
-            reader.onload = (e) => {
+            reader.onload = (ev) => {
                 const img = new Image();
                 img.onload = () => {
-                    currentImageData = img;
-                    cropX = 0; // Reset panning on new image
-                    cropY = 0;
-                    zoomSlider.value = 1; // Reset zoom on new image
-                    zoomNumber.value = 1;
-                    xSlider.value = 0;
-                    xNumber.value = 0;
-                    ySlider.value = 0;
-                    yNumber.value = 0;
-
-                    history = [];
-                    historyIndex = -1;
-                    saveHistory(); // Initial state
-
-                    exportBtn.disabled = false;
-                    cropControls.classList.remove('hidden');
-                    previewCanvas.style.cursor = 'grab';
-                    updatePreview();
+                    const entry = {
+                        id: Date.now() + '-' + Math.random().toString(36).substr(2, 9),
+                        name: file.name,
+                        img,
+                        zoom: 1, cropX: 0, cropY: 0, qty: 1,
+                        history: [{ zoom: 1, cropX: 0, cropY: 0 }],
+                        historyIndex: 0
+                    };
+                    images.push(entry);
+                    if (!activeImageId) activeImageId = entry.id;
+                    if (++loaded === files.length) onImagesUpdated();
                 };
-                img.src = e.target.result;
+                img.src = ev.target.result;
             };
             reader.readAsDataURL(file);
-        }
+        });
     });
 
+    // ---- Remove an image ----
+    function removeImage(id) {
+        const idx = images.findIndex(img => img.id === id);
+        if (idx === -1) return;
+        images.splice(idx, 1);
+        if (activeImageId === id) {
+            activeImageId = images.length ? images[Math.min(idx, images.length - 1)].id : null;
+        }
+        onImagesUpdated();
+    }
+
+    // ---- Build a flat array: one entry per slot (repeated by qty) ----
+    function buildFlatList() {
+        const flat = [];
+        images.forEach(imgData => { for (let q = 0; q < imgData.qty; q++) flat.push(imgData); });
+        return flat;
+    }
+
+    // ---- Sync controls to the active image ----
+    function onActiveImageChanged() {
+        const a = getActiveImage();
+        if (!a) {
+            cropControls.classList.add('hidden');
+            exportBtn.disabled = true;
+            previewCanvas.style.cursor = 'default';
+            updateUndoRedoButtons();
+            return;
+        }
+        cropControls.classList.remove('hidden');
+        exportBtn.disabled = false;
+        previewCanvas.style.cursor = 'grab';
+        zoomSlider.value = a.zoom; zoomNumber.value = a.zoom;
+        xSlider.value = a.cropX; xNumber.value = a.cropX;
+        ySlider.value = a.cropY; yNumber.value = a.cropY;
+        if (buttonQtyInput) buttonQtyInput.value = a.qty;
+        document.querySelectorAll('.image-item').forEach(item => {
+            item.classList.toggle('active', item.dataset.id === activeImageId);
+        });
+        updateUndoRedoButtons();
+        updatePreview();
+    }
+
+    // ---- Rebuild the images sidebar list ----
+    function onImagesUpdated() {
+        if (images.length === 0) {
+            imagesListContainer.classList.add('hidden');
+            activeImageId = null;
+            cropControls.classList.add('hidden');
+            exportBtn.disabled = true;
+            initCanvas();
+            return;
+        }
+        imagesListContainer.classList.remove('hidden');
+        exportBtn.disabled = false;
+        imagesList.innerHTML = '';
+
+        images.forEach(imgData => {
+            const item = document.createElement('div');
+            item.className = 'image-item' + (imgData.id === activeImageId ? ' active' : '');
+            item.dataset.id = imgData.id;
+
+            const thumb = document.createElement('img');
+            thumb.className = 'image-thumb';
+            thumb.src = imgData.img.src;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'image-name';
+            nameSpan.innerText = imgData.name;
+
+            const qtyControl = document.createElement('div');
+            qtyControl.className = 'image-qty-control';
+            qtyControl.addEventListener('click', e => e.stopPropagation());
+
+            const decBtn = document.createElement('button');
+            decBtn.className = 'image-qty-btn'; decBtn.innerText = '-';
+            decBtn.addEventListener('click', () => {
+                if (imgData.qty > 1) {
+                    imgData.qty--;
+                    qtyInput.value = imgData.qty;
+                    if (imgData.id === activeImageId && buttonQtyInput) buttonQtyInput.value = imgData.qty;
+                    updatePreview();
+                }
+            });
+
+            const qtyInput = document.createElement('input');
+            qtyInput.type = 'number'; qtyInput.className = 'image-qty-input';
+            qtyInput.value = imgData.qty; qtyInput.min = '1';
+            qtyInput.addEventListener('change', (e) => {
+                imgData.qty = Math.max(1, parseInt(e.target.value) || 1);
+                qtyInput.value = imgData.qty;
+                if (imgData.id === activeImageId && buttonQtyInput) buttonQtyInput.value = imgData.qty;
+                updatePreview();
+            });
+
+            const incBtn = document.createElement('button');
+            incBtn.className = 'image-qty-btn'; incBtn.innerText = '+';
+            incBtn.addEventListener('click', () => {
+                imgData.qty++;
+                qtyInput.value = imgData.qty;
+                if (imgData.id === activeImageId && buttonQtyInput) buttonQtyInput.value = imgData.qty;
+                updatePreview();
+            });
+
+            qtyControl.appendChild(decBtn);
+            qtyControl.appendChild(qtyInput);
+            qtyControl.appendChild(incBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'image-delete-btn'; delBtn.innerHTML = '&times;'; delBtn.title = 'Remove';
+            delBtn.addEventListener('click', (e) => { e.stopPropagation(); removeImage(imgData.id); });
+
+            item.appendChild(thumb);
+            item.appendChild(nameSpan);
+            item.appendChild(qtyControl);
+            item.appendChild(delBtn);
+
+            item.addEventListener('click', () => {
+                if (activeImageId !== imgData.id) { activeImageId = imgData.id; onActiveImageChanged(); }
+            });
+
+            imagesList.appendChild(item);
+        });
+
+        onActiveImageChanged();
+    }
+
+    // ---- Print settings (layout math) ----
     function getPrintSettings() {
         const dpi = parseFloat(dpiInput.value) || 300;
         const targetMm = parseFloat(targetSizeInput.value) || 58;
-
-        // paper uses cm
         let paperWCm = parseFloat(paperWInput.value) || 70;
         let paperHCm = parseFloat(paperHInput.value) || 70;
-
         if (paperSizeSelect.value !== 'custom') {
             const dims = paperDimensions[paperSizeSelect.value];
-            paperWCm = dims.w;
-            paperHCm = dims.h;
+            paperWCm = dims.w; paperHCm = dims.h;
         }
-
-        // convert mm target to cm for comparison with paper size
         const targetCm = targetMm / 10;
-
         const targetPx = (targetCm / 2.54) * dpi;
         const paperWPx = (paperWCm / 2.54) * dpi;
         const paperHPx = (paperHCm / 2.54) * dpi;
-
-        const qty = parseInt(document.getElementById('button-qty').value) || 1;
-        const layoutStyle = document.getElementById('layout-style') ? document.getElementById('layout-style').value : 'square';
-        const limitRows = document.getElementById('grid-rows') ? parseInt(document.getElementById('grid-rows').value) : 0;
-        const gapPx = (2 / 10 / 2.54) * dpi; // 2mm gap
-        const marginPx = (5 / 10 / 2.54) * dpi; // 5mm page margin
-
+        const qty = images.reduce((s, img) => s + img.qty, 0);
+        const layoutStyle = layoutStyleSelect ? layoutStyleSelect.value : 'square';
+        const limitRows = gridRowsSelect ? parseInt(gridRowsSelect.value) : 0;
+        const gapPx = (2 / 10 / 2.54) * dpi;
+        const marginPx = (5 / 10 / 2.54) * dpi;
         const S = targetPx + gapPx;
-
         const maxWidthAllowed = paperWPx - marginPx * 2;
         const maxHeightAllowed = paperHPx - marginPx * 2;
+        let maxCols = Math.max(1, Math.floor((maxWidthAllowed + gapPx) / S));
 
-        let maxCols = Math.floor((maxWidthAllowed + gapPx) / S);
-        if (maxCols < 1) maxCols = 1;
-
-        let positions = [];
-        let gridWidthPx = 0;
-        let gridHeightPx = 0;
+        let positions = [], gridWidthPx = 0, gridHeightPx = 0;
 
         if (layoutStyle === 'staggered' && maxCols > 1) {
-            let yStep = S * Math.sqrt(3) / 2;
-            let currentQty = 0;
-            let row = 0;
-            while (currentQty < qty) {
+            const yStep = S * Math.sqrt(3) / 2;
+            let filled = 0, row = 0;
+            while (filled < qty) {
                 if (limitRows > 0 && row >= limitRows) break;
-
-                let isOdd = row % 2 !== 0;
-                let colsInRow = isOdd ? maxCols - 1 : maxCols;
-                if (colsInRow < 1) colsInRow = 1;
-
-                let startX = isOdd ? S / 2 : 0;
-                let limit = Math.min(colsInRow, qty - currentQty);
+                const isOdd = row % 2 !== 0;
+                const colsInRow = Math.max(1, isOdd ? maxCols - 1 : maxCols);
+                const startX = isOdd ? S / 2 : 0;
+                const limit = Math.min(colsInRow, qty - filled);
                 for (let c = 0; c < limit; c++) {
-                    let itemX = startX + c * S;
-                    let itemY = row * yStep;
-
-                    // Bleed check
-                    if (itemX + targetPx > maxWidthAllowed || itemY + targetPx > maxHeightAllowed) continue;
-
-                    positions.push({ x: itemX, y: itemY });
-
-                    gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
-                    gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+                    const ix = startX + c * S, iy = row * yStep;
+                    if (ix + targetPx > maxWidthAllowed || iy + targetPx > maxHeightAllowed) continue;
+                    positions.push({ x: ix, y: iy });
+                    gridWidthPx = Math.max(gridWidthPx, ix + targetPx);
+                    gridHeightPx = Math.max(gridHeightPx, iy + targetPx);
                 }
-                currentQty += limit;
-                row++;
-
-                // Stop generating if next row will bleed vertically
+                filled += limit; row++;
                 if (row * yStep + targetPx > maxHeightAllowed) break;
             }
         } else {
-            let currentQty = 0;
-            let row = 0;
-            while (currentQty < qty) {
+            let filled = 0, row = 0;
+            while (filled < qty) {
                 if (limitRows > 0 && row >= limitRows) break;
-
-                let limit = Math.min(maxCols, qty - currentQty);
+                const limit = Math.min(maxCols, qty - filled);
                 for (let c = 0; c < limit; c++) {
-                    let itemX = c * S;
-                    let itemY = row * S;
-
-                    // Bleed check
-                    if (itemX + targetPx > maxWidthAllowed || itemY + targetPx > maxHeightAllowed) continue;
-
-                    positions.push({ x: itemX, y: itemY });
-
-                    gridWidthPx = Math.max(gridWidthPx, itemX + targetPx);
-                    gridHeightPx = Math.max(gridHeightPx, itemY + targetPx);
+                    const ix = c * S, iy = row * S;
+                    if (ix + targetPx > maxWidthAllowed || iy + targetPx > maxHeightAllowed) continue;
+                    positions.push({ x: ix, y: iy });
+                    gridWidthPx = Math.max(gridWidthPx, ix + targetPx);
+                    gridHeightPx = Math.max(gridHeightPx, iy + targetPx);
                 }
-                currentQty += limit;
-                row++;
-
-                // Stop generating if next row will bleed vertically
+                filled += limit; row++;
                 if (row * S + targetPx > maxHeightAllowed) break;
             }
         }
 
         const fitQty = positions.length;
-
-        // Check bounds (include margins)
         if (gridWidthPx > paperWPx - marginPx * 2 || gridHeightPx > paperHPx - marginPx * 2) {
-            warningText.innerText = "Quantity is too large for paper size!";
+            warningText.innerText = 'Quantity is too large for paper size!';
             warningText.classList.remove('hidden');
         } else if (targetCm > paperWCm || targetCm > paperHCm) {
-            warningText.innerText = "Target size is larger than paper size!";
+            warningText.innerText = 'Target size is larger than paper size!';
             warningText.classList.remove('hidden');
         } else {
             warningText.classList.add('hidden');
         }
 
-        return {
-            dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty: fitQty, gapPx, maxCols, gridWidthPx, gridHeightPx, positions
-        };
+        return { dpi, targetPx, paperWPx, paperHPx, targetCm, targetMm, paperWCm, paperHCm, qty: fitQty, gapPx, maxCols, gridWidthPx, gridHeightPx, positions };
     }
 
+    // ---- Draw one button image on a canvas context ----
+    function drawButton(ctx, imgData, centerX, centerY, targetPx, paperScale, forExport) {
+        const { img, zoom, cropX, cropY } = imgData;
+        const size = Math.min(img.width, img.height);
+        const scaleToTarget = targetPx / size;
+        const sdx = img.width * scaleToTarget * zoom;
+        const sdy = img.height * scaleToTarget * zoom;
+        const panX = forExport ? cropX / paperScale : cropX;
+        const panY = forExport ? cropY / paperScale : cropY;
+        const offX = centerX - targetPx / 2 + (targetPx - sdx) / 2 + panX;
+        const offY = centerY - targetPx / 2 + (targetPx - sdy) / 2 + panY;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, targetPx / 2, 0, Math.PI * 2);
+        ctx.clip();
+        ctx.drawImage(img, 0, 0, img.width, img.height, offX, offY, sdx, sdy);
+        ctx.restore();
+    }
+
+    // ---- Generate full-res print canvas ----
     function generatePrintCanvas() {
-        if (!currentImageData) return null;
-
+        if (images.length === 0) return null;
         const s = getPrintSettings();
-
         const exportCanvas = document.createElement('canvas');
-        exportCanvas.width = s.paperWPx;
-        exportCanvas.height = s.paperHPx;
+        exportCanvas.width = s.paperWPx; exportCanvas.height = s.paperHPx;
         const xCtx = exportCanvas.getContext('2d');
+        xCtx.clearRect(0, 0, s.paperWPx, s.paperHPx);
 
-        xCtx.clearRect(0, 0, exportCanvas.width, exportCanvas.height);
-
-        const img = currentImageData;
-        const zoom = parseFloat(zoomSlider.value);
-
-        // Target physical size in pixels
-        const targetPx = s.targetPx;
-
-        // Calculate the crop taking zoom and panning into account
-        const size = Math.min(img.width, img.height); // Base crop size before zoom
-        const drawSizeX = img.width * zoom;
-        const drawSizeY = img.height * zoom;
-
-        // Determine the base scale for drawing the image to exactly fill the target box at 1x zoom
-        const scaleToTargetX = targetPx / size;
-        const scaleToTargetY = targetPx / size;
-
-        // Apply scaling
-        const scaledDrawSizeX = img.width * scaleToTargetX * zoom;
-        const scaledDrawSizeY = img.height * scaleToTargetY * zoom;
-
-        // Pan offset (scaled to target print resolution based on preview ratio)
-        // Since cropX/Y are in screen preview pixels, we must calculate the ratio
         const paperRatio = s.paperWCm / s.paperHCm;
         const maxPreviewSize = 600;
-        let previewW = paperRatio >= 1 ? maxPreviewSize : maxPreviewSize * paperRatio;
+        const previewW = paperRatio >= 1 ? maxPreviewSize : maxPreviewSize * paperRatio;
         const paperScale = previewW / s.paperWPx;
 
-        const printCropX = cropX / paperScale;
-        const printCropY = cropY / paperScale;
-
-        // Center the grid block on the paper
         const startOffX = (s.paperWPx - s.gridWidthPx) / 2;
         const startOffY = (s.paperHPx - s.gridHeightPx) / 2;
-
-        const radius = targetPx / 2;
+        const radius = s.targetPx / 2;
+        const flat = buildFlatList();
 
         for (let i = 0; i < s.qty; i++) {
             const pos = s.positions[i];
+            const imgData = flat[i];
+            if (!imgData) continue;
+            const cx = startOffX + pos.x + radius;
+            const cy = startOffY + pos.y + radius;
+            drawButton(xCtx, imgData, cx, cy, s.targetPx, paperScale, true);
 
-            const itemX = startOffX + pos.x;
-            const itemY = startOffY + pos.y;
-
-            const centerX = itemX + radius;
-            const centerY = itemY + radius;
-
-            // Draw centered and masked by target shape
-            xCtx.save();
-            xCtx.beginPath();
-            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            xCtx.clip();
-
-            const imgOffsetX = itemX + (targetPx - scaledDrawSizeX) / 2 + printCropX;
-            const imgOffsetY = itemY + (targetPx - scaledDrawSizeY) / 2 + printCropY;
-
-            xCtx.drawImage(
-                img,
-                0, 0, img.width, img.height, // source
-                imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY // destination
-            );
-
-            xCtx.restore();
-
-            // Draw a dashed black outline around the target area for fully transparent images
-            xCtx.strokeStyle = "rgba(0, 0, 0, 1)";
-            xCtx.lineWidth = Math.max(1, targetPx * 0.005);
+            xCtx.strokeStyle = 'rgba(0,0,0,1)';
+            xCtx.lineWidth = Math.max(1, s.targetPx * 0.005);
             xCtx.setLineDash([15, 15]);
-
-            xCtx.beginPath();
-            xCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            xCtx.stroke();
-            xCtx.setLineDash([]); // Reset line dash
+            xCtx.beginPath(); xCtx.arc(cx, cy, radius, 0, Math.PI * 2); xCtx.stroke();
+            xCtx.setLineDash([]);
         }
-
         return exportCanvas;
     }
 
+    // ---- Preview canvas ----
     function updatePreview() {
-        if (!currentImageData) return;
-
+        if (images.length === 0) { initCanvas(); return; }
         const settings = getPrintSettings();
         const paperRatio = settings.paperWCm / settings.paperHCm;
-
         const maxPreviewSize = 600;
         let previewW, previewH;
+        if (paperRatio >= 1) { previewW = maxPreviewSize; previewH = maxPreviewSize / paperRatio; }
+        else { previewH = maxPreviewSize; previewW = maxPreviewSize * paperRatio; }
 
-        if (paperRatio >= 1) {
-            previewW = maxPreviewSize;
-            previewH = maxPreviewSize / paperRatio;
-        } else {
-            previewH = maxPreviewSize;
-            previewW = maxPreviewSize * paperRatio;
-        }
-
-        previewCanvas.width = previewW;
-        previewCanvas.height = previewH;
-
+        previewCanvas.width = previewW; previewCanvas.height = previewH;
         previewCtx.clearRect(0, 0, previewW, previewH);
-
-        previewCtx.fillStyle = "#424241";
+        previewCtx.fillStyle = '#424241';
         previewCtx.fillRect(0, 0, previewW, previewH);
 
         const paperScale = previewW / settings.paperWPx;
         const previewTargetPx = settings.targetPx * paperScale;
-
-        const img = currentImageData;
-        const zoom = parseFloat(zoomSlider.value);
-
-        const size = Math.min(img.width, img.height);
-
-        const scaleToTarget = previewTargetPx / size;
-        const scaledDrawSizeX = img.width * scaleToTarget * zoom;
-        const scaledDrawSizeY = img.height * scaleToTarget * zoom;
-
-        previewCtx.save();
-
-        // Calculate a scaled representation of the full grid width/height on the preview
-        const previewGridWidthPx = settings.gridWidthPx * paperScale;
-        const previewGridHeightPx = settings.gridHeightPx * paperScale;
-
-        // Find scaled origin coordinates that center the block on the paper
-        const startOffX = (previewW - previewGridWidthPx) / 2;
-        const startOffY = (previewH - previewGridHeightPx) / 2;
-
         const radius = previewTargetPx / 2;
+        const previewGridW = settings.gridWidthPx * paperScale;
+        const previewGridH = settings.gridHeightPx * paperScale;
+        const startOffX = (previewW - previewGridW) / 2;
+        const startOffY = (previewH - previewGridH) / 2;
+        const flat = buildFlatList();
 
-        // Draw the preview layout using the exact same positions logic
         for (let i = 0; i < settings.qty; i++) {
             const pos = settings.positions[i];
+            const imgData = flat[i];
+            if (!imgData) continue;
+            const cx = startOffX + pos.x * paperScale + radius;
+            const cy = startOffY + pos.y * paperScale + radius;
 
-            const itemX = startOffX + pos.x * paperScale;
-            const itemY = startOffY + pos.y * paperScale;
+            drawButton(previewCtx, imgData, cx, cy, previewTargetPx, paperScale, false);
 
-            const centerX = itemX + radius;
-            const centerY = itemY + radius;
-
-            previewCtx.save();
-
-            // Clip to the preview target box
-            previewCtx.beginPath();
-            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            previewCtx.clip();
-
-            // Include mouse-drag offset
-            const imgOffsetX = itemX + (previewTargetPx - scaledDrawSizeX) / 2 + cropX;
-            const imgOffsetY = itemY + (previewTargetPx - scaledDrawSizeY) / 2 + cropY;
-
-            previewCtx.drawImage(
-                img,
-                0, 0, img.width, img.height,
-                imgOffsetX, imgOffsetY, scaledDrawSizeX, scaledDrawSizeY
-            );
-
-            previewCtx.restore();
-
-            previewCtx.strokeStyle = "rgba(0, 0, 0, 1)";
-            previewCtx.lineWidth = 1;
-            previewCtx.setLineDash([5, 5]);
-
-            previewCtx.beginPath();
-            previewCtx.arc(centerX, centerY, radius, 0, Math.PI * 2);
-            previewCtx.stroke();
-
+            const isActive = imgData.id === activeImageId;
+            previewCtx.strokeStyle = isActive ? '#a3be8c' : 'rgba(0,0,0,0.75)';
+            previewCtx.lineWidth = isActive ? 2.5 : 1;
+            previewCtx.setLineDash([isActive ? 6 : 5, isActive ? 6 : 5]);
+            previewCtx.beginPath(); previewCtx.arc(cx, cy, radius, 0, Math.PI * 2); previewCtx.stroke();
             previewCtx.setLineDash([]);
 
-            // Draw 10mm inner safe zone dashed line (only in preview)
+            // Inner safe zone
             const innerMm = Math.max(1, settings.targetMm - 10);
-            const innerPx = innerMm * (previewTargetPx / settings.targetMm);
-            const innerRadius = innerPx / 2;
-
-            previewCtx.strokeStyle = "rgba(0, 0, 0, 0.6)";
+            const innerRadius = (innerMm * (previewTargetPx / settings.targetMm)) / 2;
+            previewCtx.strokeStyle = isActive ? 'rgba(163,190,140,0.7)' : 'rgba(0,0,0,0.4)';
             previewCtx.lineWidth = 1;
             previewCtx.setLineDash([4, 4]);
-            previewCtx.beginPath();
-            previewCtx.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
-            previewCtx.stroke();
+            previewCtx.beginPath(); previewCtx.arc(cx, cy, innerRadius, 0, Math.PI * 2); previewCtx.stroke();
             previewCtx.setLineDash([]);
         }
 
-        previewCtx.fillStyle = "#f0f0f0";
-        previewCtx.font = "12px sans-serif";
+        previewCtx.fillStyle = '#f0f0f0';
+        previewCtx.font = '12px sans-serif';
         previewCtx.fillText(`Paper: ${settings.paperWCm}x${settings.paperHCm}cm`, 10, 20);
         previewCtx.fillText(`Image: ${settings.targetMm}x${settings.targetMm}mm`, 10, 40);
-        previewCtx.restore();
     }
 
+    // ---- Export ----
     let currentExportCanvas = null;
 
     exportBtn.addEventListener('click', () => {
         if (exportBtn.disabled) return;
-
-        const originalText = exportBtn.innerText;
-        exportBtn.innerText = 'Generating...';
-        exportBtn.disabled = true;
-
+        const origText = exportBtn.innerText;
+        exportBtn.innerText = 'Generating...'; exportBtn.disabled = true;
         setTimeout(() => {
             currentExportCanvas = generatePrintCanvas();
             if (currentExportCanvas) {
-                // Show modal and draw preview
                 exportModal.classList.remove('hidden');
                 modalCanvas.width = currentExportCanvas.width;
                 modalCanvas.height = currentExportCanvas.height;
                 modalCtx.clearRect(0, 0, modalCanvas.width, modalCanvas.height);
                 modalCtx.drawImage(currentExportCanvas, 0, 0);
-
-                exportBtn.innerText = originalText;
-                exportBtn.disabled = false;
-            } else {
-                exportBtn.innerText = originalText;
-                exportBtn.disabled = false;
             }
+            exportBtn.innerText = origText; exportBtn.disabled = false;
         }, 50);
     });
 
-    modalCancelBtn.addEventListener('click', () => {
-        exportModal.classList.add('hidden');
-        currentExportCanvas = null;
-    });
+    modalCancelBtn.addEventListener('click', () => { exportModal.classList.add('hidden'); currentExportCanvas = null; });
 
     modalDownloadBtn.addEventListener('click', () => {
         if (!currentExportCanvas) return;
-
-        const originalText = modalDownloadBtn.innerText;
-        modalDownloadBtn.innerText = 'Downloading...';
-        modalDownloadBtn.disabled = true;
-
+        const origText = modalDownloadBtn.innerText;
+        modalDownloadBtn.innerText = 'Downloading...'; modalDownloadBtn.disabled = true;
         currentExportCanvas.toBlob((blob) => {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.download = `print_${targetSizeInput.value}mm.png`;
-            link.href = url;
-            link.click();
+            link.href = url; link.click();
             URL.revokeObjectURL(url);
-
-            modalDownloadBtn.innerText = originalText;
-            modalDownloadBtn.disabled = false;
-            exportModal.classList.add('hidden');
-            currentExportCanvas = null;
+            modalDownloadBtn.innerText = origText; modalDownloadBtn.disabled = false;
+            exportModal.classList.add('hidden'); currentExportCanvas = null;
         }, 'image/png');
     });
 });
